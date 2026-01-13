@@ -23,7 +23,8 @@ WORKERS = 5
 DB_URI = "mongodb"
 DB_NAME = "yato"
 
-FSUBS = [[-1003016571084, True, 10]] # Force Subscription Channels [channel_id, request_enabled, timer_in_minutes]
+fs_id = int(os.environ.get("FORCE_SUB_CHANNEL", "0"))
+FSUBS = [[fs_id, True, 10]] if fs_id != 0 else []
 # Database Channel (Primary)
 DB_CHANNEL = int(os.environ.get("DB_CHANNEL", "0"))# Multiple Database Channels (can be set via bot settings)
 # DB_CHANNELS = {
