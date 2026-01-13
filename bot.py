@@ -157,7 +157,7 @@ class Bot(Client):
         
         # Send restart msge to owner
         try:
-            restart_message = "<b>›› ʜᴇʏ sᴇɴᴘᴀɪ!!\n ɪ'ᴍ ᴀʟɪᴠᴇ ɴᴏᴡ 🍃...</b>"
+            restart_message = "<b>✅ 机器人已重启完毕！\n目前运行正常 🍃...</b>"
             await self.send_message(chat_id=self.owner, text=restart_message)
             self.LOGGER(__name__, self.name).info(f"Restart notification sent to owner: {self.owner}")
         except Exception as e:
