@@ -20,8 +20,8 @@ API_ID = int(os.environ.get("APP_ID", "0"))
 API_HASH = os.environ.get("API_HASH", "")
 WORKERS = 5
 
-DB_URI = "mongodb"
-DB_NAME = "yato"
+DB_URI = os.environ.get("DB_URL", "")
+DB_NAME = os.environ.get("DB_NAME", "yato")
 
 fs_id = int(os.environ.get("FORCE_SUB_CHANNEL", "0"))
 FSUBS = [[fs_id, True, 10]] if fs_id != 0 else []
