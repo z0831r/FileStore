@@ -44,7 +44,7 @@ async def start_command(client: Client, message: Message):
         # 3. Check premium status
         is_user_pro = await client.mongodb.is_pro(user_id)
         
-        # 4. Check if shortner is enabled
+        # 4. Check if shortner is enabled (已强制关闭，防止报错)
         shortner_enabled = False
 
         # 5. If user is not premium AND shortner is enabled, send short URL and return
@@ -92,7 +92,7 @@ async def start_command(client: Client, message: Message):
                 start_primary = int(encoded_start / primary_multiplier)
                 end_primary = int(encoded_end / primary_multiplier)
                 
-                # Check if the division results in clean integers (meaning this channel was used for encoding)
+                # Check if the division results in clean integers
                 if encoded_start % primary_multiplier == 0 and encoded_end % primary_multiplier == 0:
                     source_channel_id = client.db
                     start = start_primary
@@ -204,8 +204,41 @@ async def start_command(client: Client, message: Message):
             return await temp_msg.edit("Couldn't find the files in the database.")
         await temp_msg.delete()
 
+        # =================================================================
+        # 智能过滤逻辑开始 (Smart Filter Logic)
+        # =================================================================
         yugen_msgs = []
+        
+        # 这里是你要屏蔽的垃圾话关键词
+        junk_keywords = [
+            "正在为您生成链接", 
+            "Processing", 
+            "Generating", 
+            "收到！", 
+            "请稍候",
+            "This File is deleting automatically"
+        ]
+
         for msg in messages:
+            # 1. 检查是否是多媒体 (文件/视频/图片/音频/语音)
+            is_media = bool(msg.document or msg.video or msg.photo or msg.audio or msg.voice)
+            
+            # 2. 如果不是多媒体，那就是纯文字
+            if not is_media:
+                text_content = msg.text or ""
+                # 检查文字里是否包含垃圾关键词
+                is_junk = False
+                for keyword in junk_keywords:
+                    if keyword in text_content:
+                        is_junk = True
+                        break
+                
+                # 如果包含垃圾关键词，就跳过这条消息（不发给用户）
+                if is_junk:
+                    continue
+                # 如果不包含垃圾关键词，说明是有用的说明文字，放行！
+
+            # 3. 正常的发送逻辑
             caption = (
                 client.messages.get('CAPTION', '').format(
                     previouscaption=msg.caption.html if msg.caption else msg.document.file_name
@@ -234,6 +267,10 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 client.LOGGER(__name__, client.name).warning(f"Failed to send message: {e}")
                 pass
+        
+        # =================================================================
+        # 智能过滤逻辑结束
+        # =================================================================
 
         # 8. Auto delete timer
         if messages and client.auto_del > 0:
