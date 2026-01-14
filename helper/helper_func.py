@@ -311,7 +311,7 @@ def force_sub(func):
         # 2. 获取用户ID
         user_id = message.from_user.id
 
-        # 3. 检查用户是否已关注 (Check Subscription)
+        # 3. 检查用户是否已关注
         statuses = await check_subscription(client, user_id)
 
         # 4. 如果用户已经订阅了所有频道，直接执行原来的命令 (发文件)
@@ -327,7 +327,7 @@ def force_sub(func):
         for channel_id, (channel_name, channel_link, request, timer) in client.fsub_dict.items():
             status = statuses.get(channel_id, None)
 
-            # 如果设置了临时链接计时器 (Timer)
+            # 如果设置了临时链接计时器
             if timer > 0:
                 expire_time = datetime.now() + timedelta(minutes=timer)
                 try:
@@ -342,25 +342,24 @@ def force_sub(func):
 
             # 如果用户不是成员，添加关注按钮
             if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}:
-                # 无论是否是请求加入模式，只要没进群，就显示按钮
-                buttons.append(InlineKeyboardButton(channel_name, url=channel_link))
+                # 【修改点1】：这里强制把按钮名字改成了你要求的
+                buttons.append(InlineKeyboardButton("👉   出击回忆录   👈", url=channel_link))
 
         # 6. 添加“刷新重试”按钮
-        # 尝试获取用户原本想看的文件参数 (例如 /start 123 中的 123)
         try:
             current_param = message.command[1] if len(message.command) > 1 else "none"
         except:
             current_param = "none"
 
-        # 这个按钮点击后，会触发 check_sub 回调
-        buttons.append(InlineKeyboardButton("🔄 关注后点此刷新", callback_data=f"check_sub_{current_param}"))
+        # 【修改点2】：把按钮文字改成了“刷新重试”，以配合你的提示语
+        buttons.append(InlineKeyboardButton("🔄 刷新重试", callback_data=f"check_sub_{current_param}"))
 
         # 7. 整理按钮排版 (一列一个)
         buttons_markup = InlineKeyboardMarkup([[button] for button in buttons])
 
-        # 8. 发送提示消息 (使用 reply_text 确保稳定)
-        # 这里的文字你可以自己修改
-        text_message = "🚨 **需关注频道** 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。"
+        # 8. 发送提示消息
+        # 【修改点3】：这里改成了你指定的提示语
+        text_message = "检测到您尚未关注我们的频道出击回忆录（@CJHYL）。\n请点击下方按钮关注，然后点击“刷新重试”获取文件。"
         
         try:
             await message.reply_text(
@@ -371,7 +370,6 @@ def force_sub(func):
         except Exception as e:
             print(f"发送强制关注消息失败: {e}")
             
-        # 这里的 return 是为了阻止后续代码执行（不发文件）
         return
 
     return wrapper
