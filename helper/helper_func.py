@@ -299,38 +299,35 @@ def is_user_subscribed(statuses):
 
 #===============================================================#
 
+#===============================================================#
+
 def force_sub(func):
     """Decorator to enforce force subscription before executing a command."""
     async def wrapper(client: Client, message: Message):
+        # 1. 如果机器人没有设置强制关注频道，直接允许通过
         if not client.fsub_dict:
             return await func(client, message)
-        photo = client.messages.get('FSUB_PHOTO', '')
-        if photo:
-            # 修复开始：改成了 reply_text，防止报错
-            msg = await message.reply_text(
-            text="🚨 **需关注频道** 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。",
-            reply_markup=buttons
-        )
-        # 修复结束
-        else:
-            msg = await message.reply(
-                "<code><b>ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ.....</b></code>"
-            )
+
+        # 2. 获取用户ID
         user_id = message.from_user.id
+
+        # 3. 检查用户是否已关注 (Check Subscription)
         statuses = await check_subscription(client, user_id)
 
+        # 4. 如果用户已经订阅了所有频道，直接执行原来的命令 (发文件)
         if is_user_subscribed(statuses):
-            await msg.delete()
             return await func(client, message)
 
-        # User is not subscribed to all channels
+        # ==========================================================
+        # 5. 代码走到这里，说明用户没关注。现在开始制作按钮。
+        # ==========================================================
         buttons = []
-        channels_message = f"{client.messages.get('FSUB', '')}\n\n"
-
+        
+        # 遍历设置中的所有强制关注频道
         for channel_id, (channel_name, channel_link, request, timer) in client.fsub_dict.items():
             status = statuses.get(channel_id, None)
 
-            # Generate invite link if needed
+            # 如果设置了临时链接计时器 (Timer)
             if timer > 0:
                 expire_time = datetime.now() + timedelta(minutes=timer)
                 try:
@@ -341,53 +338,45 @@ def force_sub(func):
                     )
                     channel_link = invite.invite_link
                 except Exception as e:
-                    client.LOGGER(__name__, client.name).warning(f"Error creating invite link for {channel_name}: {e}")
+                    client.LOGGER(__name__, client.name).warning(f"Error creating invite link: {e}")
 
-            # Add button based on user status
+            # 如果用户不是成员，添加关注按钮
             if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}:
-                # Check if user has already submitted request for request channels
-                if request and await client.mongodb.has_submitted_join_request(user_id, channel_id):
-                    request_status = await client.mongodb.get_join_request_status(user_id, channel_id)
-                    if request_status == "pending":
-                        # Don't add button if request is still pending
-                        continue
-                    elif request_status == "approved":
-                        # User can now join the channel
-                        button_text = f"{channel_name}"
-                    else:
-                        button_text = f"{channel_name}"
-                else:
-                    # User hasn't submitted request or it's a regular channel
-                    if request:
-                        button_text = f"{channel_name}"
-                    else:
-                        button_text = f"{channel_name}"
-                
-                buttons.append(InlineKeyboardButton(button_text, url=channel_link))
+                # 无论是否是请求加入模式，只要没进群，就显示按钮
+                buttons.append(InlineKeyboardButton(channel_name, url=channel_link))
 
-        # Add "Try Again" button if needed
-        from_link = message.text.split(" ")
-        if len(from_link) > 1:
-            try_again_link = f"https://t.me/{client.username}/?start={from_link[1]}"
-            buttons.append(InlineKeyboardButton("🔄 Try Again", url=try_again_link))
-
-        # Organize buttons in rows of 1 for better readability
-        buttons_markup = InlineKeyboardMarkup([[button] for button in buttons])
-        buttons_markup = None if not buttons else buttons_markup
-
-        # Edit message with status update and buttons
+        # 6. 添加“刷新重试”按钮
+        # 尝试获取用户原本想看的文件参数 (例如 /start 123 中的 123)
         try:
-            await msg.edit_text(text=channels_message, reply_markup=buttons_markup)
+            current_param = message.command[1] if len(message.command) > 1 else "none"
+        except:
+            current_param = "none"
+
+        # 这个按钮点击后，会触发 check_sub 回调
+        buttons.append(InlineKeyboardButton("🔄 关注后点此刷新", callback_data=f"check_sub_{current_param}"))
+
+        # 7. 整理按钮排版 (一列一个)
+        buttons_markup = InlineKeyboardMarkup([[button] for button in buttons])
+
+        # 8. 发送提示消息 (使用 reply_text 确保稳定)
+        # 这里的文字你可以自己修改
+        text_message = "🚨 **需关注频道** 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。"
+        
+        try:
+            await message.reply_text(
+                text=text_message,
+                reply_markup=buttons_markup,
+                disable_web_page_preview=True
+            )
         except Exception as e:
-            client.LOGGER(__name__, client.name).warning(f"Error updating force sub message: {e}")
-            # Fallback: send new message if edit fails
-            try:
-                await msg.delete()
-                await message.reply(text=channels_message, reply_markup=buttons_markup)
-            except Exception:
-                pass
+            print(f"发送强制关注消息失败: {e}")
+            
+        # 这里的 return 是为了阻止后续代码执行（不发文件）
+        return
 
     return wrapper
+
+#===============================================================#
 
 #===============================================================#
 
