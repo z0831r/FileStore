@@ -306,10 +306,12 @@ def force_sub(func):
             return await func(client, message)
         photo = client.messages.get('FSUB_PHOTO', '')
         if photo:
-            msg = await message.reply_photo(
-                caption="<b>ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ.....</b>", 
-                photo=photo
-            )
+            # 修复开始：改成了 reply_text，防止报错
+        msg = await message.reply_text(
+            text="🚨 **需关注频道** 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。",
+            reply_markup=buttons
+        )
+        # 修复结束
         else:
             msg = await message.reply(
                 "<code><b>ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ.....</b></code>"
