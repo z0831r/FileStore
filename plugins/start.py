@@ -32,7 +32,8 @@ async def start_command(client: Client, message: Message):
         try:
             original_payload = text.split(" ", 1)[1]
             base64_string = original_payload
-
+            
+            # 处理短链接逻辑 (保留但不启用)
             is_short_link = False
             if base64_string.startswith("yu3elk"):
                 base64_string = base64_string[6:-1]
@@ -44,17 +45,11 @@ async def start_command(client: Client, message: Message):
         # 3. Check premium status
         is_user_pro = await client.mongodb.is_pro(user_id)
         
-        # 4. 强制关闭短链接功能（防止报错）
+        # 4. 强制关闭短链接功能
         shortner_enabled = False
 
-        # 5. If user is not premium AND shortner is enabled...
         if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
-            # 这段逻辑被 shortner_enabled = False 屏蔽了，直接跳过
-            try:
-                short_link = get_short(f"https://t.me/{client.username}?start=yu3elk{base64_string}7", client)
-            except Exception as e:
-                client.LOGGER(__name__, client.name).warning(f"Shortener failed: {e}")
-                return await message.reply("Couldn't generate short link.")
+            # 这里的代码永远不会执行，因为上面强制设为了 False
             return 
 
         # 6. Decode and prepare file IDs
@@ -151,38 +146,21 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         # =================================================================
-        # ⚡️ 核心修复：智能垃圾话过滤器 (防止刷屏)
+        # ⚡️ 终极过滤逻辑：只发媒体，不发纯文字 (Strict Media Mode)
         # =================================================================
         yugen_msgs = []
         
-        # 这些是你截图里出现的垃圾消息关键词，只要包含它们，统统过滤掉！
-        junk_keywords = [
-            "正在为您生成链接", 
-            "Processing", 
-            "Generating", 
-            "收到！", 
-            "请稍候",
-            "This File is deleting automatically"
-        ]
-
         for msg in messages:
-            # 1. 如果是文件、视频、图片、音频 -> 直接保留！
+            # 1. 检查是否是【媒体文件】
+            # 只有当消息包含：文档、视频、图片、音频、语音 时，才判定为有效
             is_media = bool(msg.document or msg.video or msg.photo or msg.audio or msg.voice)
             
-            # 2. 如果是纯文字 -> 检查是不是垃圾话
+            # 2. 如果不是媒体（也就是纯文字），直接跳过！
+            # 这样可以 100% 过滤掉所有的“收到”、“正在生成”等垃圾文字
             if not is_media:
-                text_content = msg.text or ""
-                is_junk = False
-                for keyword in junk_keywords:
-                    if keyword in text_content:
-                        is_junk = True
-                        break
-                
-                # 如果是垃圾话，直接跳过 (continue)，不发送！
-                if is_junk:
-                    continue
+                continue
 
-            # 3. 正常的发送逻辑
+            # 3. 正常的发送逻辑 (媒体带的文字说明 caption 会被保留)
             caption = (
                 client.messages.get('CAPTION', '').format(
                     previouscaption=msg.caption.html if msg.caption else msg.document.file_name
@@ -212,7 +190,7 @@ async def start_command(client: Client, message: Message):
                 pass
         
         # =================================================================
-        # 过滤器结束
+        # 过滤逻辑结束
         # =================================================================
 
         # 8. Auto delete timer
