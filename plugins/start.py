@@ -45,7 +45,7 @@ async def start_command(client: Client, message: Message):
         is_user_pro = await client.mongodb.is_pro(user_id)
         
         # 4. Check if shortner is enabled
-        shortner_enabled = getattr(client, 'shortner_enabled', True)
+        shortner_enabled = False
 
         # 5. If user is not premium AND shortner is enabled, send short URL and return
         if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
