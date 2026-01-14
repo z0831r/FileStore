@@ -44,36 +44,18 @@ async def start_command(client: Client, message: Message):
         # 3. Check premium status
         is_user_pro = await client.mongodb.is_pro(user_id)
         
-        # 4. Check if shortner is enabled (已强制关闭，防止报错)
+        # 4. 强制关闭短链接功能（防止报错）
         shortner_enabled = False
 
-        # 5. If user is not premium AND shortner is enabled, send short URL and return
+        # 5. If user is not premium AND shortner is enabled...
         if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
+            # 这段逻辑被 shortner_enabled = False 屏蔽了，直接跳过
             try:
                 short_link = get_short(f"https://t.me/{client.username}?start=yu3elk{base64_string}7", client)
             except Exception as e:
                 client.LOGGER(__name__, client.name).warning(f"Shortener failed: {e}")
                 return await message.reply("Couldn't generate short link.")
-
-            short_photo = client.messages.get("SHORT_PIC", "")
-            short_caption = client.messages.get("SHORT_MSG", "")
-            tutorial_link = getattr(client, 'tutorial_link', "https://t.me/How_to_Download_7x/26")
-
-            await client.send_photo(
-                chat_id=message.chat.id,
-                photo=short_photo,
-                caption=short_caption,
-                reply_markup=InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ", url=short_link),
-                        InlineKeyboardButton("ᴛᴜᴛᴏʀɪᴀʟ •", url=tutorial_link)
-                    ],
-                    [
-                        InlineKeyboardButton(" • ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", url="https://t.me/Premium_Fliix/21")
-                    ]
-                ])
-            )
-            return  # prevent sending actual files
+            return 
 
         # 6. Decode and prepare file IDs
         try:
@@ -83,38 +65,28 @@ async def start_command(client: Client, message: Message):
             source_channel_id = None
 
             if len(argument) == 3:
-                # Try to determine source channel from encoded multiplier
                 encoded_start = int(argument[1])
                 encoded_end = int(argument[2])
-                
-                # Try primary channel first
                 primary_multiplier = abs(client.db)
                 start_primary = int(encoded_start / primary_multiplier)
                 end_primary = int(encoded_end / primary_multiplier)
                 
-                # Check if the division results in clean integers
                 if encoded_start % primary_multiplier == 0 and encoded_end % primary_multiplier == 0:
                     source_channel_id = client.db
                     start = start_primary
                     end = end_primary
-                    client.LOGGER(__name__, client.name).info(f"Decoded batch from primary channel {source_channel_id}: {start}-{end}")
                 else:
-                    # Try secondary channels
                     db_channels = getattr(client, 'db_channels', {})
                     for channel_id_str in db_channels.keys():
                         channel_id = int(channel_id_str)
                         channel_multiplier = abs(channel_id)
                         start_test = int(encoded_start / channel_multiplier)
                         end_test = int(encoded_end / channel_multiplier)
-                        
                         if encoded_start % channel_multiplier == 0 and encoded_end % channel_multiplier == 0:
                             source_channel_id = channel_id
                             start = start_test
                             end = end_test
-                            client.LOGGER(__name__, client.name).info(f"Decoded batch from secondary channel {source_channel_id}: {start}-{end}")
                             break
-                    
-                    # Fallback to primary if no match found
                     if source_channel_id is None:
                         source_channel_id = client.db
                         start = start_primary
@@ -123,36 +95,27 @@ async def start_command(client: Client, message: Message):
                 ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
 
             elif len(argument) == 2:
-                # Single message
                 encoded_msg = int(argument[1])
-                
-                # Try primary channel first
                 if hasattr(client, 'db_channel') and client.db_channel:
                     primary_multiplier = abs(client.db_channel.id)
                     msg_id_primary = int(encoded_msg / primary_multiplier)
-                    
                     if encoded_msg % primary_multiplier == 0:
                         source_channel_id = client.db_channel.id
                         ids = [msg_id_primary]
                     else:
-                        # Try secondary channels
                         db_channels = getattr(client, 'db_channels', {})
                         for channel_id_str in db_channels.keys():
                             channel_id = int(channel_id_str)
                             channel_multiplier = abs(channel_id)
                             msg_id_test = int(encoded_msg / channel_multiplier)
-                            
                             if encoded_msg % channel_multiplier == 0:
                                 source_channel_id = channel_id
                                 ids = [msg_id_test]
                                 break
-                        
-                        # Fallback to primary
                         if source_channel_id is None:
                             source_channel_id = client.db_channel.id if hasattr(client, 'db_channel') else client.db
                             ids = [msg_id_primary]
                 else:
-                    # Fallback for legacy compatibility
                     source_channel_id = client.db
                     ids = [int(encoded_msg / abs(client.db))]
 
@@ -160,44 +123,27 @@ async def start_command(client: Client, message: Message):
             client.LOGGER(__name__, client.name).warning(f"Error decoding base64: {e}")
             return await message.reply("⚠️ Invalid or expired link.")
 
-        # 7. Get messages from the specific source channel first
+        # 7. Get messages
         temp_msg = await message.reply("Wait A Sec..")
         messages = []
 
         try:
-            # Try to get messages from the identified source channel first
             if source_channel_id:
-                client.LOGGER(__name__, client.name).info(f"Trying to get messages from source channel: {source_channel_id}")
                 try:
-                    msgs = await client.get_messages(
-                        chat_id=source_channel_id,
-                        message_ids=list(ids)
-                    )
-                    # Filter out None messages (deleted/not found)
+                    msgs = await client.get_messages(chat_id=source_channel_id, message_ids=list(ids))
                     valid_msgs = [msg for msg in msgs if msg is not None]
                     messages.extend(valid_msgs)
-                    client.LOGGER(__name__, client.name).info(f"Found {len(valid_msgs)} messages from source channel {source_channel_id}")
-                    
-                    # If we didn't get all messages, try the fallback system
                     if len(valid_msgs) < len(list(ids)):
                         missing_ids = [mid for mid in ids if mid not in {msg.id for msg in valid_msgs}]
                         if missing_ids:
-                            client.LOGGER(__name__, client.name).info(f"Missing {len(missing_ids)} messages, trying fallback system")
-                            # Use the fallback system for missing messages
                             additional_messages = await get_messages(client, missing_ids)
                             messages.extend(additional_messages)
-                            client.LOGGER(__name__, client.name).info(f"Found {len(additional_messages)} additional messages from fallback")
                 except Exception as e:
-                    client.LOGGER(__name__, client.name).warning(f"Error getting messages from source channel {source_channel_id}: {e}")
-                    # Fallback to the multi-channel system
                     messages = await get_messages(client, ids)
             else:
-                client.LOGGER(__name__, client.name).info("No specific source channel identified, using multi-channel fallback")
-                # Use the multi-channel fallback system
                 messages = await get_messages(client, ids)
         except Exception as e:
             await temp_msg.edit_text("Something went wrong!")
-            client.LOGGER(__name__, client.name).warning(f"Error getting messages: {e}")
             return
 
         if not messages:
@@ -205,11 +151,11 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         # =================================================================
-        # 智能过滤逻辑开始 (Smart Filter Logic)
+        # ⚡️ 核心修复：智能垃圾话过滤器 (防止刷屏)
         # =================================================================
         yugen_msgs = []
         
-        # 这里是你要屏蔽的垃圾话关键词
+        # 这些是你截图里出现的垃圾消息关键词，只要包含它们，统统过滤掉！
         junk_keywords = [
             "正在为您生成链接", 
             "Processing", 
@@ -220,23 +166,21 @@ async def start_command(client: Client, message: Message):
         ]
 
         for msg in messages:
-            # 1. 检查是否是多媒体 (文件/视频/图片/音频/语音)
+            # 1. 如果是文件、视频、图片、音频 -> 直接保留！
             is_media = bool(msg.document or msg.video or msg.photo or msg.audio or msg.voice)
             
-            # 2. 如果不是多媒体，那就是纯文字
+            # 2. 如果是纯文字 -> 检查是不是垃圾话
             if not is_media:
                 text_content = msg.text or ""
-                # 检查文字里是否包含垃圾关键词
                 is_junk = False
                 for keyword in junk_keywords:
                     if keyword in text_content:
                         is_junk = True
                         break
                 
-                # 如果包含垃圾关键词，就跳过这条消息（不发给用户）
+                # 如果是垃圾话，直接跳过 (continue)，不发送！
                 if is_junk:
                     continue
-                # 如果不包含垃圾关键词，说明是有用的说明文字，放行！
 
             # 3. 正常的发送逻辑
             caption = (
@@ -265,19 +209,15 @@ async def start_command(client: Client, message: Message):
                 )
                 yugen_msgs.append(copied_msg)
             except Exception as e:
-                client.LOGGER(__name__, client.name).warning(f"Failed to send message: {e}")
                 pass
         
         # =================================================================
-        # 智能过滤逻辑结束
+        # 过滤器结束
         # =================================================================
 
         # 8. Auto delete timer
         if messages and client.auto_del > 0:
-            # Create transfer link for getting files again (original base64_string)
             transfer_link = original_payload
-            
-            # Start batch auto delete notification - single notification for all files
             asyncio.create_task(batch_auto_del_notification(
                 bot_username=client.username,
                 messages=yugen_msgs,
@@ -325,7 +265,7 @@ async def start_command(client: Client, message: Message):
 @Client.on_message(filters.command('request') & filters.private)
 async def request_command(client: Client, message: Message):
     user_id = message.from_user.id
-    is_admin = user_id in client.admins  # ✅ Fix this line
+    is_admin = user_id in client.admins
     is_user_premium = await client.mongodb.is_pro(user_id)
 
     if is_admin or user_id == OWNER_ID:
@@ -348,13 +288,11 @@ async def request_command(client: Client, message: Message):
         return
 
     requested = " ".join(message.command[1:])
-
     owner_message = (
         f"📩 **New Request from {message.from_user.mention}**\n\n"
         f"🆔 User ID: `{user_id}`\n"
         f"📝 Request: `{requested}`"
     )
-
     await client.send_message(OWNER_ID, owner_message)
     await message.reply("✅ **Thanks for your request!**\nYour request will be reviewed soon. Please wait.")
 
@@ -363,28 +301,12 @@ async def request_command(client: Client, message: Message):
 @Client.on_message(filters.command('profile') & filters.private)
 async def my_plan(client: Client, message: Message):
     user_id = message.from_user.id
-    is_admin = user_id in client.admins  # ✅ Fix here
-
+    is_admin = user_id in client.admins
     if is_admin or user_id == OWNER_ID:
         await message.reply_text("🔹 You're my sensei! This command is only for users.")
         return
-    
     is_user_premium = await client.mongodb.is_pro(user_id)
-
     if is_user_premium:
-        await message.reply_text(
-            "**👤 Profile Information:**\n\n"
-            "🔸 Ads: Disabled\n"
-            "🔸 Plan: Premium\n"
-            "🔸 Request: Enabled\n\n"
-            "🌟 You're a Premium User!"
-        )
+        await message.reply_text("**👤 Profile Information:**\n\n🔸 Ads: Disabled\n🔸 Plan: Premium\n🔸 Request: Enabled\n\n🌟 You're a Premium User!")
     else:
-        await message.reply_text(
-            "**👤 Profile Information:**\n\n"
-            "🔸 Ads: Enabled\n"
-            "🔸 Plan: Free\n"
-            "🔸 Request: Disabled\n\n"
-            "🔓 Unlock Premium to get more benefits\n"
-            "Contact: @GetoPro"
-        )
+        await message.reply_text("**👤 Profile Information:**\n\n🔸 Ads: Enabled\n🔸 Plan: Free\n🔸 Request: Disabled\n\n🔓 Unlock Premium to get more benefits\nContact: @GetoPro")
