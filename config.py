@@ -37,7 +37,7 @@ AUTO_DEL = 300
 ADMINS = [6497757690, 6103092779]
 # Bot Settings
 DISABLE_BTN = True
-PROTECT = True
+PROTECT = False
 
 # Messages Configuration
 MESSAGES = {
