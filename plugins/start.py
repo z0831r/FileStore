@@ -49,7 +49,6 @@ async def start_command(client: Client, message: Message):
         shortner_enabled = False
 
         if not is_user_pro and user_id != OWNER_ID and not is_short_link and shortner_enabled:
-            # 这里的代码永远不会执行，因为上面强制设为了 False
             return 
 
         # 6. Decode and prepare file IDs
@@ -146,21 +145,16 @@ async def start_command(client: Client, message: Message):
         await temp_msg.delete()
 
         # =================================================================
-        # ⚡️ 终极过滤逻辑：只发媒体，不发纯文字 (Strict Media Mode)
+        # ⚡️ 终极过滤逻辑 (Strict Media Mode)
         # =================================================================
         yugen_msgs = []
         
         for msg in messages:
-            # 1. 检查是否是【媒体文件】
-            # 只有当消息包含：文档、视频、图片、音频、语音 时，才判定为有效
-            is_media = bool(msg.document or msg.video or msg.photo or msg.audio or msg.voice)
-            
-            # 2. 如果不是媒体（也就是纯文字），直接跳过！
-            # 这样可以 100% 过滤掉所有的“收到”、“正在生成”等垃圾文字
-            if not is_media:
+            # 1. 终极判断：只要 msg.media 是空的（代表是纯文字），直接跳过
+            if not msg.media:
                 continue
 
-            # 3. 正常的发送逻辑 (媒体带的文字说明 caption 会被保留)
+            # 2. 正常的发送逻辑 (媒体带的文字说明 caption 会被保留)
             caption = (
                 client.messages.get('CAPTION', '').format(
                     previouscaption=msg.caption.html if msg.caption else msg.document.file_name
@@ -170,11 +164,12 @@ async def start_command(client: Client, message: Message):
             reply_markup = msg.reply_markup if not client.disable_btn else None
 
             try:
+                # 【关键修改】：protect_content=True 表示禁止转发和下载
                 copied_msg = await msg.copy(
                     chat_id=message.from_user.id,
                     caption=caption,
                     reply_markup=reply_markup,
-                    protect_content=client.protect
+                    protect_content=True 
                 )
                 yugen_msgs.append(copied_msg)
             except FloodWait as e:
@@ -183,27 +178,29 @@ async def start_command(client: Client, message: Message):
                     chat_id=message.from_user.id,
                     caption=caption,
                     reply_markup=reply_markup,
-                    protect_content=client.protect
+                    protect_content=True
                 )
                 yugen_msgs.append(copied_msg)
             except Exception as e:
                 pass
         
         # =================================================================
-        # 过滤逻辑结束
+        # 8. 提示逻辑：仅发送中文提示，不自动删除
         # =================================================================
+        
+        # 如果有文件成功发送
+        if yugen_msgs:
+            try:
+                # 发送免责声明 (同样禁止转发)
+                await client.send_message(
+                    chat_id=message.from_user.id,
+                    text="均为网络资源，仅供学习参考。",
+                    disable_web_page_preview=True,
+                    protect_content=True
+                )
+            except Exception as e:
+                pass
 
-        # 8. Auto delete timer
-        if messages and client.auto_del > 0:
-            transfer_link = original_payload
-            asyncio.create_task(batch_auto_del_notification(
-                bot_username=client.username,
-                messages=yugen_msgs,
-                delay_time=client.auto_del,
-                transfer_link=transfer_link,
-                chat_id=message.from_user.id,
-                client=client
-            ))
         return
 
     # 9. Normal start message
