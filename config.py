@@ -47,7 +47,7 @@ MESSAGES = {
     "REPLY": "<b>收到！正在为您生成链接，请稍候...</b>",
     "SHORT_MSG": "<b>📊 嘿 {first}, \n\n‼️ 获取您的文件链接 ‼️\n\n ⌯ 链接已生成，请点击下方按钮打开..</b>",
     "START_PHOTO": "https://github.com/z0831r/FileStore/blob/Yato/photo_2026-01-13_19-08-13.jpg?raw=true",
-    "FSUB_PHOTO": "https://github.com/z0831r/FileStore/blob/Yato/photo_2026-01-13_19-08-13.jpg?raw=true",
+    "FSUB_PHOTO": "",
     "SHORT_PIC": "https://github.com/z0831r/FileStore/blob/Yato/photo_2026-01-13_19-08-13.jpg?raw=true",
     "SHORT": "https://github.com/z0831r/FileStore/blob/Yato/photo_2026-01-13_19-08-13.jpg?raw=true"
 }
