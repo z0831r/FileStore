@@ -307,7 +307,7 @@ def force_sub(func):
         photo = client.messages.get('FSUB_PHOTO', '')
         if photo:
             # 修复开始：改成了 reply_text，防止报错
-        msg = await message.reply_text(
+            msg = await message.reply_text(
             text="🚨 **需关注频道** 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。",
             reply_markup=buttons
         )
