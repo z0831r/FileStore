@@ -18,6 +18,8 @@ DB_CHANNEL = -1003608700446
 # 4. 强制关注频道 ID
 fs_id = -1002323971609
 
+# 5. 强制关注群组 ID 
+TG_GROUP_ID = -1001426717075
 # =====================================================================
 # 👆👆👆 配置结束 👆👆👆
 # =====================================================================
@@ -58,7 +60,7 @@ PROTECT = False
 # Messages Configuration
 MESSAGES = {
     "START": "<b>👋 你好!!, {first} ~ <blockquote>我是您的私人文件管家。\n直接发送文件给我，我会为您生成永久分享链接。\n\n⚠️ 注意：请勿上传违规内容。</blockquote></b>",
-    "FSUB": "<b>🚨 需关注频道 🚨\n\n检测到您尚未关注我们的频道。\n为了防止滥用，请点击下方按钮关注，然后点击“刷新重试”获取文件。</b>",
+    "FSUB": "<b>🚨 身份验证 🚨\n\n检测到您尚未完全加入我们的社区。\n为了防止滥用，请点击下方按钮【加入官方群组】和【关注防封频道】。\n\n完成后请点击“刷新重试”获取文件。</b>",
     "ABOUT": "<b>›› 机器人名称: 文件存储机器人 \n <blockquote expandable>›› 更新频道: <a href='https://t.me/codeflix_bots'>点击查看</a> \n›› 主人: @ProYato\n›› 语言: <a href='https://docs.python.org/3/'>Python 3</a> \n›› 框架: <a href='https://docs.pyrogram.org/'>Pyrogram v2</a> \n›› 数据库: <a href='https://www.mongodb.com/docs/'>Mongo DB</a></b></blockquote>",
     "REPLY": "<b>收到！正在为您生成链接，请稍候...</b>",
     "SHORT_MSG": "<b>📊 嘿 {first}, \n\n‼️ 获取您的文件链接 ‼️\n\n ⌯ 链接已生成，请点击下方按钮打开..</b>",
