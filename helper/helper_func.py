@@ -318,12 +318,12 @@ def force_sub(func):
         if is_user_subscribed(statuses):
             return await func(client, message)
 
-        # ==========================================================
+# ==========================================================
         # 5. 代码走到这里，说明用户没关注。现在开始制作按钮。
         # ==========================================================
         buttons = []
         
-        # 遍历设置中的所有强制关注频道
+        # 遍历设置中的所有强制关注频道（包含群组和频道）
         for channel_id, (channel_name, channel_link, request, timer) in client.fsub_dict.items():
             status = statuses.get(channel_id, None)
 
@@ -342,8 +342,10 @@ def force_sub(func):
 
             # 如果用户不是成员，添加关注按钮
             if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}:
-                # 【修改点1】：这里强制把按钮名字改成了你要求的
-                buttons.append(InlineKeyboardButton("👉   出击回忆录   👈", url=channel_link))
+                # 【修复核心1：动态按钮名称】
+                # channel_name 会自动读取你 Telegram 群组/频道的真实标题
+                btn_name = channel_name if channel_name else "官方社区"
+                buttons.append(InlineKeyboardButton(f"👉 加入 {btn_name} 👈", url=channel_link))
 
         # 6. 添加“刷新重试”按钮
         try:
@@ -351,15 +353,19 @@ def force_sub(func):
         except:
             current_param = "none"
 
-        # 【修改点2】：把按钮文字改成了“刷新重试”，以配合你的提示语
-        buttons.append(InlineKeyboardButton("🔄 刷新重试", callback_data=f"check_sub_{current_param}"))
+        buttons.append(InlineKeyboardButton("🔄 已加入，刷新重试", callback_data=f"check_sub_{current_param}"))
 
         # 7. 整理按钮排版 (一列一个)
         buttons_markup = InlineKeyboardMarkup([[button] for button in buttons])
 
         # 8. 发送提示消息
-        # 【修改点3】：这里改成了你指定的提示语
-        text_message = "检测到您尚未关注我们的频道出击回忆录（@CJHYL）。\n请点击下方按钮关注，然后点击“刷新重试”获取文件。"
+        # 【修复核心2：通用双重验证提示语】不再只提“出击回忆录”
+        text_message = (
+            "<b>🚨 身份验证 🚨</b>\n\n"
+            "检测到您尚未完全加入我们的社区。\n"
+            "为了防止滥用，请点击下方按钮加入我们的<b>【官方群组】</b>和<b>【频道】</b>。\n\n"
+            "完成后请点击“刷新重试”获取文件。"
+        )
         
         try:
             await message.reply_text(
