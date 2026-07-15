@@ -28,7 +28,7 @@ async def refresh_check(client, callback_query):
             button = [[
                 InlineKeyboardButton(
                     "📂 验证通过！点击这里获取文件", 
-                    url=f"https://t.me/{client.username}?start={payload}"
+                    url=f"https://t.me/{client.me.username}?start={payload}"
                 )
             ]]
             await callback_query.message.edit_text(
@@ -46,4 +46,5 @@ async def refresh_check(client, callback_query):
             )
             
     else:
-        await callback_query.answer("❌ 您仍然没有关注频道，请关注后再试！", show_alert=True)
+        # 👇👇👇 就是这里！改成了双重验证的提示 👇👇👇
+        await callback_query.answer("❌ 验证失败！请确保您已【加入群组】并【关注频道】后再试！", show_alert=True)
