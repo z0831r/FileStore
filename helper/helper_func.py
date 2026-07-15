@@ -219,8 +219,8 @@ async def check_subscription(client, user_id):
             user = await client.get_chat_member(channel_id, user_id)
             actual_status = user.status
             
-            # If user is already a member, admin, or owner
-            if actual_status in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}:
+            # 【修复1】：这里加上了 ChatMemberStatus.RESTRICTED
+            if actual_status in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER, ChatMemberStatus.RESTRICTED}:
                 await client.mongodb.update_fsub_status(user_id, channel_id, "joined")
                 await client.mongodb.add_channel_user(channel_id, user_id)
                 
@@ -292,10 +292,15 @@ async def check_subscription(client, user_id):
 
 def is_user_subscribed(statuses):
     """Check if user is subscribed to all channels."""
-    return all(
-        status in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
-        for status in statuses.values() if status is not None
-    ) and bool(statuses)
+    # 【修复2】：重写了这里的拦截逻辑，并加入 RESTRICTED
+    if not statuses:
+        return False
+        
+    for status in statuses.values():
+        if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER, ChatMemberStatus.RESTRICTED}:
+            return False
+            
+    return True
 
 #===============================================================#
 
@@ -318,7 +323,7 @@ def force_sub(func):
         if is_user_subscribed(statuses):
             return await func(client, message)
 
-# ==========================================================
+        # ==========================================================
         # 5. 代码走到这里，说明用户没关注。现在开始制作按钮。
         # ==========================================================
         buttons = []
@@ -341,8 +346,8 @@ def force_sub(func):
                     client.LOGGER(__name__, client.name).warning(f"Error creating invite link: {e}")
 
             # 如果用户不是成员，添加关注按钮
-            if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}:
-                # 【修复核心1：动态按钮名称】
+            # 【修复3】：这里也补齐了 RESTRICTED 状态判断
+            if status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER, ChatMemberStatus.RESTRICTED}:
                 # channel_name 会自动读取你 Telegram 群组/频道的真实标题
                 btn_name = channel_name if channel_name else "官方社区"
                 buttons.append(InlineKeyboardButton(f"👉 加入 {btn_name} 👈", url=channel_link))
@@ -359,7 +364,6 @@ def force_sub(func):
         buttons_markup = InlineKeyboardMarkup([[button] for button in buttons])
 
         # 8. 发送提示消息
-        # 【修复核心2：通用双重验证提示语】不再只提“出击回忆录”
         text_message = (
             "<b>🚨 身份验证 🚨</b>\n\n"
             "检测到您尚未完全加入我们的社区。\n"
