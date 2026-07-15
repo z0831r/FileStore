@@ -45,7 +45,7 @@ DB_URI = "mongodb+srv://z0831r:zr19900831@cluster0.wmpdcus.mongodb.net/?appName=
 DB_NAME = "yato"
 
 # 强制关注配置
-FSUBS = [[fs_id, True, 10], [TG_GROUP_ID, True, 10]]
+FSUBS = [[fs_id, False, 10], [TG_GROUP_ID, False, 10]]
 
 # Auto Delete Timer (seconds)
 AUTO_DEL = 300
